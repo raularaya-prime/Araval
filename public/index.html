@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Araval Inventario — Bodega de Insumos</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="toast-container" class="toast-container"></div>
+
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark">A</span>
+      <div>
+        <h1>Araval Inventario</h1>
+        <p>Bodega de insumos — Maestranza metalmecánica</p>
+      </div>
+    </div>
+    <nav class="tabs">
+      <button class="tab-btn active" data-view="panel">Panel</button>
+      <button class="tab-btn" data-view="inventario">Inventario</button>
+      <button class="tab-btn" data-view="movimientos">Movimientos</button>
+      <button class="tab-btn" data-view="alertas">
+        Alertas <span id="alertas-badge" class="badge hidden">0</span>
+      </button>
+    </nav>
+  </header>
+
+  <main class="app-main">
+
+    <!-- PANEL -->
+    <section id="view-panel" class="view active">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <span class="stat-label">Materiales registrados</span>
+          <span class="stat-value" id="stat-total">—</span>
+        </div>
+        <div class="stat-card stat-card-alert">
+          <span class="stat-label">Stock crítico</span>
+          <span class="stat-value" id="stat-alertas">—</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Movimientos hoy</span>
+          <span class="stat-value" id="stat-movimientos">—</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Valor inventario</span>
+          <span class="stat-value" id="stat-valor">—</span>
+        </div>
+      </div>
+
+      <div class="panel-block">
+        <div class="panel-block-header">
+          <h2>Materias primas con stock crítico</h2>
+          <button class="link-btn" data-goto="alertas">Ver todas →</button>
+        </div>
+        <div id="panel-alertas-table" class="table-wrap"></div>
+      </div>
+
+      <div class="panel-block">
+        <div class="panel-block-header">
+          <h2>Últimos movimientos</h2>
+          <button class="link-btn" data-goto="movimientos">Ver todos →</button>
+        </div>
+        <div id="panel-movimientos-table" class="table-wrap"></div>
+      </div>
+    </section>
+
+    <!-- INVENTARIO -->
+    <section id="view-inventario" class="view">
+      <div class="toolbar">
+        <input id="inv-buscar" type="search" placeholder="Buscar por código o nombre..." />
+        <select id="inv-categoria"><option value="">Todas las categorías</option></select>
+        <label class="checkbox-label">
+          <input id="inv-solo-criticos" type="checkbox" /> Solo stock crítico
+        </label>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" id="btn-nuevo-material">+ Nuevo material</button>
+      </div>
+      <div id="inventario-table" class="table-wrap"></div>
+    </section>
+
+    <!-- MOVIMIENTOS -->
+    <section id="view-movimientos" class="view">
+      <div class="panel-block">
+        <div class="panel-block-header">
+          <h2>Registrar movimiento</h2>
+        </div>
+        <form id="form-movimiento" class="form-grid">
+          <label>
+            Material
+            <select id="mov-material" required></select>
+          </label>
+          <label>
+            Tipo de movimiento
+            <select id="mov-tipo" required>
+              <option value="ingreso">Ingreso</option>
+              <option value="salida">Salida</option>
+            </select>
+          </label>
+          <label>
+            Cantidad
+            <input id="mov-cantidad" type="number" step="0.01" min="0.01" required />
+          </label>
+          <label>
+            Documento / OT
+            <input id="mov-documento" type="text" placeholder="Ej: OT-1024, OC-330" />
+          </label>
+          <label>
+            Responsable
+            <input id="mov-responsable" type="text" placeholder="Nombre de quien registra" />
+          </label>
+          <label class="span-2">
+            Motivo
+            <input id="mov-motivo" type="text" placeholder="Ej: Consumo en fabricación, compra a proveedor..." />
+          </label>
+          <div class="form-actions span-2">
+            <span id="mov-stock-info" class="hint"></span>
+            <button type="submit" class="btn btn-primary">Registrar movimiento</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="panel-block">
+        <div class="panel-block-header">
+          <h2>Historial de movimientos</h2>
+        </div>
+        <div class="toolbar">
+          <select id="hist-tipo">
+            <option value="">Todos los tipos</option>
+            <option value="ingreso">Ingresos</option>
+            <option value="salida">Salidas</option>
+          </select>
+          <input id="hist-desde" type="date" />
+          <input id="hist-hasta" type="date" />
+          <button class="btn" id="btn-filtrar-hist">Filtrar</button>
+        </div>
+        <div id="movimientos-table" class="table-wrap"></div>
+      </div>
+    </section>
+
+    <!-- ALERTAS -->
+    <section id="view-alertas" class="view">
+      <div class="panel-block">
+        <div class="panel-block-header">
+          <h2>Materias primas bajo stock mínimo</h2>
+          <button class="btn" id="btn-notificaciones">🔔 Activar notificaciones del navegador</button>
+        </div>
+        <div id="alertas-table" class="table-wrap"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: crear/editar material -->
+  <div id="modal-material" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-material-title">Nuevo material</h2>
+        <button class="modal-close" data-close-modal="modal-material">&times;</button>
+      </div>
+      <form id="form-material" class="form-grid">
+        <input type="hidden" id="mat-id" />
+        <label>
+          Código
+          <input id="mat-codigo" type="text" required placeholder="Ej: AC-PL-001" />
+        </label>
+        <label>
+          Nombre
+          <input id="mat-nombre" type="text" required placeholder="Ej: Plancha de acero A36" />
+        </label>
+        <label>
+          Categoría
+          <input id="mat-categoria" type="text" list="categorias-list" placeholder="Ej: Acero, Soldadura..." />
+          <datalist id="categorias-list"></datalist>
+        </label>
+        <label>
+          Unidad de medida
+          <input id="mat-unidad" type="text" required placeholder="Ej: kg, metro, unidad" />
+        </label>
+        <label id="mat-stock-actual-wrap">
+          Stock inicial
+          <input id="mat-stock-actual" type="number" step="0.01" min="0" value="0" />
+        </label>
+        <label>
+          Stock mínimo (crítico)
+          <input id="mat-stock-minimo" type="number" step="0.01" min="0" required value="0" />
+        </label>
+        <label>
+          Ubicación en bodega
+          <input id="mat-ubicacion" type="text" placeholder="Ej: Estante A1" />
+        </label>
+        <label>
+          Proveedor
+          <input id="mat-proveedor" type="text" />
+        </label>
+        <label>
+          Precio unitario ($)
+          <input id="mat-precio" type="number" step="1" min="0" />
+        </label>
+        <div class="form-actions span-2">
+          <button type="button" class="btn" data-close-modal="modal-material">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

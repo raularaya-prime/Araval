@@ -1,0 +1,15 @@
+{
+  "name": "araval-inventario",
+  "version": "1.0.0",
+  "description": "Herramienta de control de inventario para bodega de insumos de maestranza metalmecanica",
+  "type": "commonjs",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "license": "UNLICENSED"
+}
