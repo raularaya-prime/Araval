@@ -39,6 +39,9 @@ Luego abre `http://localhost:3000`.
 
 Variable de entorno opcional: `PORT` (por defecto `3000`).
 
+Para desplegarla en un servidor real (systemd, Docker, Nginx + HTTPS, backups),
+ver [DEPLOY.md](DEPLOY.md).
+
 ## Estructura
 
 ```
