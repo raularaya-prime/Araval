@@ -232,6 +232,7 @@ tbody tr:hover { background: var(--surface-hover); }
 .pill-critico { background: var(--danger-soft); color: var(--danger); }
 .pill-ingreso { background: var(--success-soft); color: var(--success); }
 .pill-salida { background: rgba(245, 165, 36, 0.18); color: var(--accent); }
+.pill-neutral { background: rgba(147, 161, 189, 0.15); color: var(--text-muted); }
 
 .empty-state { padding: 30px; text-align: center; color: var(--text-muted); }
 

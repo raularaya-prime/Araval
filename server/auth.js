@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const db = require('./db');
 const { hashPassword, verifyPassword } = require('./password');
+const { ApiError } = require('./api');
 
 const SESSION_COOKIE = 'araval_session';
 const SESSION_DAYS = Number(process.env.SESSION_DAYS) || 7;
@@ -25,7 +26,8 @@ function findUserByUsername(username) {
 }
 
 function findUserById(id) {
-  return db.prepare('SELECT id, username, password_hash FROM usuarios WHERE id = ?').get(id);
+  const row = db.prepare('SELECT id, username, password_hash, is_admin FROM usuarios WHERE id = ?').get(id);
+  return row ? { ...row, is_admin: !!row.is_admin } : null;
 }
 
 function createSession(userId) {
@@ -39,15 +41,14 @@ function createSession(userId) {
 
 function getSessionUser(token) {
   if (!token) return null;
-  return (
-    db
-      .prepare(
-        `SELECT u.id, u.username FROM sesiones s
-         JOIN usuarios u ON u.id = s.usuario_id
-         WHERE s.token = ? AND s.expires_at > datetime('now')`
-      )
-      .get(token) || null
-  );
+  const row = db
+    .prepare(
+      `SELECT u.id, u.username, u.is_admin FROM sesiones s
+       JOIN usuarios u ON u.id = s.usuario_id
+       WHERE s.token = ? AND s.expires_at > datetime('now')`
+    )
+    .get(token);
+  return row ? { ...row, is_admin: !!row.is_admin } : null;
 }
 
 function deleteSession(token) {
@@ -57,6 +58,76 @@ function deleteSession(token) {
 
 function updatePassword(userId, newPasswordHash) {
   db.prepare('UPDATE usuarios SET password_hash = ? WHERE id = ?').run(newPasswordHash, userId);
+}
+
+function requireAdmin(currentUser) {
+  if (!currentUser.is_admin) throw new ApiError(403, 'Requiere permisos de administrador');
+}
+
+function countAdmins() {
+  return db.prepare('SELECT COUNT(*) AS n FROM usuarios WHERE is_admin = 1').get().n;
+}
+
+function listUsers(currentUser) {
+  requireAdmin(currentUser);
+  return db
+    .prepare('SELECT id, username, is_admin, created_at FROM usuarios ORDER BY username')
+    .all()
+    .map((u) => ({ ...u, is_admin: !!u.is_admin }));
+}
+
+function createUser(currentUser, body) {
+  requireAdmin(currentUser);
+  const username = String(body.username || '').trim();
+  const password = String(body.password || '');
+  const isAdmin = body.is_admin ? 1 : 0;
+
+  if (!username) throw new ApiError(400, 'El usuario es obligatorio');
+  if (password.length < 8) throw new ApiError(400, 'La contraseña debe tener al menos 8 caracteres');
+  if (findUserByUsername(username)) {
+    throw new ApiError(409, `Ya existe un usuario con el nombre "${username}"`);
+  }
+
+  const result = db
+    .prepare('INSERT INTO usuarios (username, password_hash, is_admin) VALUES (?, ?, ?)')
+    .run(username, hashPassword(password), isAdmin);
+
+  return { id: result.lastInsertRowid, username, is_admin: !!isAdmin };
+}
+
+function deleteUser(currentUser, targetId) {
+  requireAdmin(currentUser);
+  if (targetId === currentUser.id) throw new ApiError(400, 'No puedes eliminar tu propio usuario');
+  const target = findUserById(targetId);
+  if (!target) throw new ApiError(404, 'Usuario no encontrado');
+  if (target.is_admin && countAdmins() <= 1) {
+    throw new ApiError(400, 'No puedes eliminar al último administrador');
+  }
+  db.prepare('DELETE FROM usuarios WHERE id = ?').run(targetId);
+}
+
+function setAdminFlag(currentUser, targetId, isAdmin) {
+  requireAdmin(currentUser);
+  if (targetId === currentUser.id) throw new ApiError(400, 'No puedes cambiar tu propio rol de administrador');
+  const target = findUserById(targetId);
+  if (!target) throw new ApiError(404, 'Usuario no encontrado');
+  if (!isAdmin && target.is_admin && countAdmins() <= 1) {
+    throw new ApiError(400, 'No puedes quitar al último administrador');
+  }
+  db.prepare('UPDATE usuarios SET is_admin = ? WHERE id = ?').run(isAdmin ? 1 : 0, targetId);
+}
+
+function resetUserPassword(currentUser, targetId, body) {
+  requireAdmin(currentUser);
+  if (targetId === currentUser.id) {
+    throw new ApiError(400, 'Para cambiar tu propia contraseña usa "Cambiar contraseña" en el encabezado');
+  }
+  const nueva = String(body.password_nueva || '');
+  if (nueva.length < 8) throw new ApiError(400, 'La nueva contraseña debe tener al menos 8 caracteres');
+  const target = findUserById(targetId);
+  if (!target) throw new ApiError(404, 'Usuario no encontrado');
+  updatePassword(targetId, hashPassword(nueva));
+  db.prepare('DELETE FROM sesiones WHERE usuario_id = ?').run(targetId);
 }
 
 function parseCookies(header) {
@@ -121,4 +192,9 @@ module.exports = {
   setSessionCookie,
   clearSessionCookie,
   checkRateLimit,
+  listUsers,
+  createUser,
+  deleteUser,
+  setAdminFlag,
+  resetUserPassword,
 };

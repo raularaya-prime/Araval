@@ -179,9 +179,20 @@ docker run -d --name araval -p 3000:3000 -v araval-data:/app/data \
   --restart unless-stopped araval-inventario
 ```
 
-Las sesiones duran 7 días por defecto (`SESSION_DAYS`). Solo hay un usuario
-por ahora — no hay pantalla de gestión de usuarios adicionales; si necesitas
-varias cuentas, pídelo.
+Las sesiones duran 7 días por defecto (`SESSION_DAYS`).
+
+### Usuarios adicionales
+
+Con la cuenta del administrador puedes crear más usuarios desde la pestaña
+"Usuarios" (solo visible para administradores): usuario + contraseña
+inicial, con o sin rol de administrador. Desde ahí también se puede
+resetear la contraseña de otro usuario, promover/quitar el rol de admin, o
+eliminar una cuenta. Protecciones incorporadas: nadie puede eliminarse ni
+quitarse el rol de administrador a sí mismo (usa "Cambiar contraseña" en el
+encabezado para tu propia cuenta), ni dejar al sistema sin ningún
+administrador. Actualizar una instalación que ya tenía un único usuario
+(de antes de esta función) lo asciende automáticamente a administrador la
+primera vez que arranca con el código nuevo.
 
 ### Aun así, usa HTTPS
 

@@ -48,6 +48,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    is_admin INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -59,6 +60,15 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_sesiones_usuario ON sesiones(usuario_id);
 `);
+
+// Migracion: instalaciones creadas antes de la gestion de usuarios no tienen
+// la columna is_admin. El (unico) usuario existente pasa a administrador
+// para no perder acceso.
+const usuarioColumns = db.prepare('PRAGMA table_info(usuarios)').all();
+if (!usuarioColumns.some((c) => c.name === 'is_admin')) {
+  db.exec('ALTER TABLE usuarios ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
+  db.exec('UPDATE usuarios SET is_admin = 1 WHERE id = (SELECT MIN(id) FROM usuarios)');
+}
 
 function seed() {
   const insert = db.prepare(`
@@ -108,7 +118,7 @@ function seedAdminUser() {
     generated = true;
   }
 
-  db.prepare('INSERT INTO usuarios (username, password_hash) VALUES (?, ?)').run(
+  db.prepare('INSERT INTO usuarios (username, password_hash, is_admin) VALUES (?, ?, 1)').run(
     username,
     hashPassword(password)
   );

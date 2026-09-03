@@ -20,6 +20,10 @@ cuando algún insumo cae bajo su stock mínimo (crítico).
 - **Login**: toda la app (interfaz y API) requiere sesión iniciada. En el primer arranque
   se crea un usuario administrador con contraseña generada (o la que definas por variable
   de entorno); cada usuario puede cambiar su contraseña desde la app.
+- **Gestión de usuarios** (solo administradores): pestaña "Usuarios" para crear cuentas
+  adicionales, resetear la contraseña de otro usuario, promover/quitar el rol de
+  administrador, y eliminar usuarios. No puedes eliminarte ni quitarte el rol de admin
+  a ti mismo, ni eliminar/degradar al último administrador restante.
 
 ## Stack
 
@@ -54,9 +58,9 @@ ver [DEPLOY.md](DEPLOY.md).
 server/
   index.js    servidor HTTP + enrutamiento de la API + archivos estáticos + puerta de login
   api.js      lógica de negocio (materiales, movimientos, alertas)
-  auth.js     sesiones, cookies, rate limiting de login
+  auth.js     sesiones, cookies, rate limiting de login, gestión de usuarios (admin)
   password.js hash/verificación de contraseñas (scrypt)
-  db.js       esquema SQLite, datos de ejemplo y usuario administrador inicial
+  db.js       esquema SQLite, datos de ejemplo, usuario administrador inicial y migraciones
 public/
   index.html  interfaz (Panel, Inventario, Movimientos, Alertas)
   app.js      lógica de la interfaz (fetch a la API, render de tablas, modales)
@@ -77,7 +81,12 @@ responden `401`.
 | POST | `/api/login` | Inicia sesión (`username`, `password`) |
 | POST | `/api/logout` | Cierra la sesión actual |
 | GET | `/api/me` | Usuario de la sesión activa |
-| POST | `/api/cambiar-password` | Cambia la contraseña (`password_actual`, `password_nueva`) |
+| POST | `/api/cambiar-password` | Cambia tu propia contraseña (`password_actual`, `password_nueva`) |
+| GET | `/api/usuarios` | Lista usuarios *(solo administradores)* |
+| POST | `/api/usuarios` | Crea un usuario (`username`, `password`, `is_admin`) *(solo administradores)* |
+| PUT | `/api/usuarios/:id` | Cambia el rol de admin de otro usuario (`is_admin`) *(solo administradores)* |
+| DELETE | `/api/usuarios/:id` | Elimina otro usuario *(solo administradores)* |
+| POST | `/api/usuarios/:id/resetear-password` | Resetea la contraseña de otro usuario (`password_nueva`) *(solo administradores)* |
 | GET | `/api/resumen` | Estadísticas para el panel |
 | GET | `/api/materiales` | Lista materiales (filtros: `categoria`, `buscar`, `criticos`) |
 | GET | `/api/materiales/:id` | Detalle de un material |

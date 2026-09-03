@@ -25,6 +25,7 @@
         <button class="tab-btn" data-view="alertas">
           Alertas <span id="alertas-badge" class="badge hidden">0</span>
         </button>
+        <button class="tab-btn" data-view="usuarios" id="tab-usuarios" hidden>Usuarios</button>
       </nav>
       <div class="user-menu">
         <span id="user-label" class="user-label"></span>
@@ -157,6 +158,15 @@
         <div id="alertas-table" class="table-wrap"></div>
       </div>
     </section>
+
+    <!-- USUARIOS -->
+    <section id="view-usuarios" class="view">
+      <div class="toolbar">
+        <div class="spacer"></div>
+        <button class="btn btn-primary" id="btn-nuevo-usuario">+ Nuevo usuario</button>
+      </div>
+      <div id="usuarios-table" class="table-wrap"></div>
+    </section>
   </main>
 
   <!-- Modal: crear/editar material -->
@@ -232,6 +242,56 @@
         <div class="hint" id="pass-error" style="color: var(--danger);"></div>
         <div class="form-actions">
           <button type="button" class="btn" data-close-modal="modal-password">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: nuevo usuario -->
+  <div id="modal-usuario" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Nuevo usuario</h2>
+        <button class="modal-close" data-close-modal="modal-usuario">&times;</button>
+      </div>
+      <form id="form-usuario" class="form-grid" style="grid-template-columns: 1fr;">
+        <label>
+          Usuario
+          <input id="usr-username" type="text" required autocomplete="off" />
+        </label>
+        <label>
+          Contraseña inicial
+          <input id="usr-password" type="password" required minlength="8" autocomplete="new-password" />
+        </label>
+        <label class="checkbox-label">
+          <input id="usr-is-admin" type="checkbox" /> Es administrador (puede gestionar usuarios)
+        </label>
+        <div class="hint" id="usr-error" style="color: var(--danger);"></div>
+        <div class="form-actions">
+          <button type="button" class="btn" data-close-modal="modal-usuario">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Crear usuario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: resetear contraseña de un usuario -->
+  <div id="modal-reset-password" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Resetear contraseña</h2>
+        <button class="modal-close" data-close-modal="modal-reset-password">&times;</button>
+      </div>
+      <form id="form-reset-password" class="form-grid" style="grid-template-columns: 1fr;">
+        <input type="hidden" id="reset-usuario-id" />
+        <label>
+          Contraseña nueva
+          <input id="reset-password-nueva" type="password" required minlength="8" autocomplete="new-password" />
+        </label>
+        <div class="hint" id="reset-password-error" style="color: var(--danger);"></div>
+        <div class="form-actions">
+          <button type="button" class="btn" data-close-modal="modal-reset-password">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>

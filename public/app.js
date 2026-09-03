@@ -4,6 +4,7 @@
     categorias: [],
     view: 'panel',
     notifiedCriticalIds: new Set(),
+    me: null,
   };
 
   // ---------- helpers ----------
@@ -75,6 +76,7 @@
     if (view === 'inventario') loadInventario();
     if (view === 'movimientos') loadMovimientos();
     if (view === 'alertas') loadAlertas();
+    if (view === 'usuarios') loadUsuarios();
   }
 
   // ---------- rendering: materiales table ----------
@@ -335,6 +337,35 @@
     badge.classList.toggle('hidden', count === 0);
   }
 
+  // ---------- usuarios ----------
+
+  function usuarioRowHtml(u) {
+    const rolPill = u.is_admin
+      ? `<span class="pill pill-ok">Administrador</span>`
+      : `<span class="pill pill-neutral">Operador</span>`;
+    const esYo = state.me && state.me.id === u.id;
+    return `
+      <tr>
+        <td><strong>${escapeHtml(u.username)}</strong>${esYo ? ' <span class="hint">(tú)</span>' : ''}</td>
+        <td>${rolPill}</td>
+        <td>${fecha(u.created_at)}</td>
+        <td>
+          ${esYo
+            ? '<span class="hint">Usa "Cambiar contraseña" en el encabezado</span>'
+            : `
+          <button class="icon-btn" data-action="resetear" data-id="${u.id}">Resetear contraseña</button>
+          <button class="icon-btn" data-action="toggle-admin" data-id="${u.id}" data-admin="${u.is_admin ? '1' : '0'}">${u.is_admin ? 'Quitar admin' : 'Hacer admin'}</button>
+          <button class="icon-btn" data-action="eliminar-usuario" data-id="${u.id}">Eliminar</button>`}
+        </td>
+      </tr>`;
+  }
+
+  async function loadUsuarios() {
+    const usuarios = await api('/usuarios');
+    const head = `<th>Usuario</th><th>Rol</th><th>Creado</th><th>Acciones</th>`;
+    $('#usuarios-table').innerHTML = tableOrEmpty(usuarios.map(usuarioRowHtml), head, 'No hay usuarios registrados.');
+  }
+
   function notifyCriticalIfNeeded(alertas) {
     const nuevos = alertas.filter((m) => !state.notifiedCriticalIds.has(m.id));
     if (!nuevos.length) return;
@@ -436,6 +467,86 @@
         setTimeout(() => { $('#mov-material').value = id; updateMovStockInfo(); }, 50);
       }
     });
+
+    $('#btn-nuevo-usuario').addEventListener('click', () => {
+      $('#form-usuario').reset();
+      $('#usr-error').textContent = '';
+      $('#modal-usuario').classList.remove('hidden');
+    });
+    $('#modal-usuario').addEventListener('click', (e) => {
+      if (e.target.id === 'modal-usuario') closeModal('modal-usuario');
+    });
+    $('#form-usuario').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('#usr-error').textContent = '';
+      try {
+        await api('/usuarios', {
+          method: 'POST',
+          body: JSON.stringify({
+            username: $('#usr-username').value.trim(),
+            password: $('#usr-password').value,
+            is_admin: $('#usr-is-admin').checked,
+          }),
+        });
+        toast('Usuario creado', 'success');
+        closeModal('modal-usuario');
+        loadUsuarios();
+      } catch (err) {
+        $('#usr-error').textContent = err.message;
+      }
+    });
+
+    $('#modal-reset-password').addEventListener('click', (e) => {
+      if (e.target.id === 'modal-reset-password') closeModal('modal-reset-password');
+    });
+    $('#form-reset-password').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('#reset-password-error').textContent = '';
+      const id = $('#reset-usuario-id').value;
+      try {
+        await api(`/usuarios/${id}/resetear-password`, {
+          method: 'POST',
+          body: JSON.stringify({ password_nueva: $('#reset-password-nueva').value }),
+        });
+        toast('Contraseña actualizada', 'success');
+        closeModal('modal-reset-password');
+      } catch (err) {
+        $('#reset-password-error').textContent = err.message;
+      }
+    });
+
+    $('#usuarios-table').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+
+      if (btn.dataset.action === 'resetear') {
+        $('#form-reset-password').reset();
+        $('#reset-password-error').textContent = '';
+        $('#reset-usuario-id').value = id;
+        $('#modal-reset-password').classList.remove('hidden');
+      }
+      if (btn.dataset.action === 'eliminar-usuario') {
+        if (!confirm('¿Eliminar este usuario? Ya no podrá iniciar sesión.')) return;
+        try {
+          await api(`/usuarios/${id}`, { method: 'DELETE' });
+          toast('Usuario eliminado', 'success');
+          loadUsuarios();
+        } catch (err) {
+          toast(err.message, 'danger');
+        }
+      }
+      if (btn.dataset.action === 'toggle-admin') {
+        const isAdmin = btn.dataset.admin === '1';
+        try {
+          await api(`/usuarios/${id}`, { method: 'PUT', body: JSON.stringify({ is_admin: !isAdmin }) });
+          toast(isAdmin ? 'Rol de administrador removido' : 'Ahora es administrador', 'success');
+          loadUsuarios();
+        } catch (err) {
+          toast(err.message, 'danger');
+        }
+      }
+    });
   }
 
   function debounce(fn, ms) {
@@ -449,7 +560,9 @@
     wireEvents();
     try {
       const me = await api('/me');
-      $('#user-label').textContent = `👤 ${me.username}`;
+      state.me = me;
+      $('#user-label').textContent = `👤 ${me.username}${me.is_admin ? ' (admin)' : ''}`;
+      if (me.is_admin) $('#tab-usuarios').hidden = false;
     } catch {
       return; // api() ya redirigió a /login en un 401
     }

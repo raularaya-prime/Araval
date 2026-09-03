@@ -133,7 +133,42 @@ function serveStatic(req, res, pathname) {
 }
 
 const routes = [
-  { method: 'GET', pattern: /^\/api\/me$/, handler: (params, query, body, user) => ({ username: user.username }) },
+  {
+    method: 'GET',
+    pattern: /^\/api\/me$/,
+    handler: (params, query, body, user) => ({ id: user.id, username: user.username, is_admin: user.is_admin }),
+  },
+  { method: 'GET', pattern: /^\/api\/usuarios$/, handler: (params, query, body, user) => auth.listUsers(user) },
+  {
+    method: 'POST',
+    pattern: /^\/api\/usuarios$/,
+    handler: (params, query, body, user) => auth.createUser(user, body),
+    status: 201,
+  },
+  {
+    method: 'DELETE',
+    pattern: /^\/api\/usuarios\/(\d+)$/,
+    handler: (params, query, body, user) => {
+      auth.deleteUser(user, Number(params[0]));
+      return { ok: true };
+    },
+  },
+  {
+    method: 'PUT',
+    pattern: /^\/api\/usuarios\/(\d+)$/,
+    handler: (params, query, body, user) => {
+      auth.setAdminFlag(user, Number(params[0]), !!body.is_admin);
+      return { ok: true };
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/api\/usuarios\/(\d+)\/resetear-password$/,
+    handler: (params, query, body, user) => {
+      auth.resetUserPassword(user, Number(params[0]), body);
+      return { ok: true };
+    },
+  },
   {
     method: 'POST',
     pattern: /^\/api\/cambiar-password$/,
