@@ -5,9 +5,10 @@ Node.js), así que desplegarla es simplemente: tener Node 22.5+ en el
 servidor, copiar el código, y mantener el proceso vivo. Elige una de las dos
 rutas de abajo según el tipo de servidor que tengas.
 
-> ⚠️ **La app no tiene login.** Cualquiera que llegue a la URL puede ver y
-> modificar el inventario. Antes de exponerla en internet, restringe el
-> acceso (ver [Seguridad y acceso](#seguridad-y-acceso) más abajo).
+> ⚠️ **Revisa las credenciales del primer arranque.** La app pide login,
+> pero el usuario administrador inicial se crea automáticamente con una
+> contraseña que solo se muestra una vez en los logs (o la que tú definas
+> por variable de entorno). Ver [Seguridad y acceso](#seguridad-y-acceso).
 
 ## Requisitos
 
@@ -148,23 +149,51 @@ Avísame si quieres que agregue este `Dockerfile` (y opcionalmente un
 
 ## Seguridad y acceso
 
-La app no implementa autenticación. Antes de exponerla, elige al menos una:
+La app tiene login incorporado (usuario/contraseña + sesión por cookie).
+Todas las rutas — la interfaz y la API — exigen sesión iniciada; sin ella,
+el navegador es redirigido a `/login` y las llamadas a la API responden 401.
 
-- **Restringir por red**: solo accesible por VPN o red interna de la
-  maestranza (lo más simple y recomendado si el uso es solo interno).
-- **HTTP Basic Auth en Nginx** como capa mínima:
-  ```bash
-  sudo apt-get install -y apache2-utils
-  sudo htpasswd -c /etc/nginx/.htpasswd bodega
-  ```
-  y agregar dentro del `location /` del bloque Nginx:
-  ```nginx
-  auth_basic "Araval Inventario";
-  auth_basic_user_file /etc/nginx/.htpasswd;
-  ```
-- **Autenticación en la app**: requiere agregar login al backend — se puede
-  hacer, pero es trabajo adicional fuera del alcance actual; pídelo si lo
-  necesitas.
+### Primer arranque: usuario administrador
+
+En el primer arranque (cuando la tabla de usuarios está vacía) se crea un
+único usuario automáticamente:
+
+- **Usuario**: `admin`, o el valor de la variable de entorno
+  `ADMIN_USERNAME`.
+- **Contraseña**: el valor de `ADMIN_PASSWORD` si la defines; si no, se
+  genera una aleatoria y se imprime **una sola vez** en los logs al arrancar
+  (`journalctl -u araval` o `docker logs araval`). Guárdala en ese momento —
+  no se vuelve a mostrar — o cámbiala luego desde la app (botón "Cambiar
+  contraseña" en el encabezado).
+
+Para fijar la contraseña inicial en vez de dejar que se genere:
+
+```bash
+# systemd: agrega a la sección [Service] de araval.service
+Environment=ADMIN_USERNAME=bodega
+Environment=ADMIN_PASSWORD=una-clave-fuerte-aqui
+
+# Docker: pásalas como -e al correr el contenedor
+docker run -d --name araval -p 3000:3000 -v araval-data:/app/data \
+  -e ADMIN_USERNAME=bodega -e ADMIN_PASSWORD=una-clave-fuerte-aqui \
+  --restart unless-stopped araval-inventario
+```
+
+Las sesiones duran 7 días por defecto (`SESSION_DAYS`). Solo hay un usuario
+por ahora — no hay pantalla de gestión de usuarios adicionales; si necesitas
+varias cuentas, pídelo.
+
+### Aun así, usa HTTPS
+
+El login es solo tan seguro como el transporte: sin HTTPS, la contraseña y
+la cookie de sesión viajan en texto plano. La sección de Nginx + Certbot de
+arriba ya deja esto resuelto — no lo saltes en producción. Detrás de ese
+proxy, la cookie de sesión se marca `Secure` automáticamente (la app detecta
+el header `X-Forwarded-Proto` que ya viene configurado en el bloque Nginx).
+
+Para capas adicionales (uso solo interno, defensa en profundidad), sigue
+siendo válido restringir por VPN/red interna o sumar HTTP Basic Auth en
+Nginx delante del login de la app.
 
 ## Backups
 
@@ -182,3 +211,6 @@ copia consistente en caliente). Un cron diario simple:
 | Variable | Default | Descripción |
 | --- | --- | --- |
 | `PORT` | `3000` | Puerto donde escucha el servidor HTTP |
+| `ADMIN_USERNAME` | `admin` | Usuario administrador creado en el primer arranque |
+| `ADMIN_PASSWORD` | (aleatoria, se imprime en logs) | Contraseña del administrador en el primer arranque |
+| `SESSION_DAYS` | `7` | Duración de la sesión iniciada antes de expirar |

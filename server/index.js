@@ -4,8 +4,10 @@ const fs = require('node:fs');
 const { URL } = require('node:url');
 
 const api = require('./api');
+const auth = require('./auth');
 
 const PORT = process.env.PORT || 3000;
+const PUBLIC_PATHS = new Set(['/login', '/login.js', '/styles.css']);
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 const MIME_TYPES = {
@@ -51,6 +53,50 @@ function readBody(req) {
   });
 }
 
+function clientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.socket.remoteAddress || 'unknown';
+}
+
+async function handleLogin(req, res) {
+  try {
+    const ip = clientIp(req);
+    if (!auth.checkRateLimit(ip)) {
+      sendJson(res, 429, { error: 'Demasiados intentos. Intenta nuevamente en unos minutos.' });
+      return;
+    }
+    const body = await readBody(req);
+    const username = String(body.username || '').trim();
+    const password = String(body.password || '');
+    if (!username || !password) {
+      sendJson(res, 400, { error: 'Usuario y contraseña son obligatorios' });
+      return;
+    }
+    const user = auth.findUserByUsername(username);
+    if (!user || !auth.verifyPassword(password, user.password_hash)) {
+      sendJson(res, 401, { error: 'Usuario o contraseña incorrectos' });
+      return;
+    }
+    const token = auth.createSession(user.id);
+    auth.setSessionCookie(req, res, token);
+    sendJson(res, 200, { username: user.username });
+  } catch (err) {
+    if (err instanceof api.ApiError) {
+      sendJson(res, err.status, { error: err.message });
+    } else {
+      console.error(err);
+      sendJson(res, 500, { error: 'Error interno del servidor' });
+    }
+  }
+}
+
+function handleLogout(req, res) {
+  auth.deleteSession(auth.getSessionToken(req));
+  auth.clearSessionCookie(req, res);
+  sendJson(res, 200, { ok: true });
+}
+
 function serveStatic(req, res, pathname) {
   let filePath = pathname === '/' ? '/index.html' : pathname;
   filePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, '');
@@ -87,6 +133,23 @@ function serveStatic(req, res, pathname) {
 }
 
 const routes = [
+  { method: 'GET', pattern: /^\/api\/me$/, handler: (params, query, body, user) => ({ username: user.username }) },
+  {
+    method: 'POST',
+    pattern: /^\/api\/cambiar-password$/,
+    handler: (params, query, body, user) => {
+      const actual = String(body.password_actual || '');
+      const nueva = String(body.password_nueva || '');
+      if (!actual || !nueva) throw new api.ApiError(400, 'Debes indicar la contraseña actual y la nueva');
+      if (nueva.length < 8) throw new api.ApiError(400, 'La nueva contraseña debe tener al menos 8 caracteres');
+      const dbUser = auth.findUserById(user.id);
+      if (!auth.verifyPassword(actual, dbUser.password_hash)) {
+        throw new api.ApiError(401, 'La contraseña actual es incorrecta');
+      }
+      auth.updatePassword(user.id, auth.hashPassword(nueva));
+      return { ok: true };
+    },
+  },
   { method: 'GET', pattern: /^\/api\/resumen$/, handler: (params, query) => api.resumen() },
   { method: 'GET', pattern: /^\/api\/categorias$/, handler: (params, query) => api.listCategorias() },
   { method: 'GET', pattern: /^\/api\/alertas$/, handler: (params, query) => api.listAlertas() },
@@ -133,8 +196,33 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
 
+  if (pathname === '/api/login' && req.method === 'POST') {
+    await handleLogin(req, res);
+    return;
+  }
+  if (pathname === '/api/logout' && req.method === 'POST') {
+    handleLogout(req, res);
+    return;
+  }
+
+  const user = auth.getUserFromRequest(req);
+  if (!PUBLIC_PATHS.has(pathname) && !user) {
+    if (pathname.startsWith('/api/')) {
+      sendJson(res, 401, { error: 'No autenticado' });
+    } else {
+      res.writeHead(302, { Location: '/login' });
+      res.end();
+    }
+    return;
+  }
+  if (pathname === '/login' && user) {
+    res.writeHead(302, { Location: '/' });
+    res.end();
+    return;
+  }
+
   if (!pathname.startsWith('/api/')) {
-    serveStatic(req, res, pathname);
+    serveStatic(req, res, pathname === '/login' ? '/login.html' : pathname);
     return;
   }
 
@@ -150,7 +238,7 @@ const server = http.createServer(async (req, res) => {
     const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
     const match = route.pattern.exec(pathname);
     const params = match.slice(1);
-    const result = route.handler(params, query, body);
+    const result = route.handler(params, query, body, user);
     sendJson(res, route.status || 200, result);
   } catch (err) {
     if (err instanceof api.ApiError) {

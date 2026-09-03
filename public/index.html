@@ -17,14 +17,21 @@
         <p>Bodega de insumos — Maestranza metalmecánica</p>
       </div>
     </div>
-    <nav class="tabs">
-      <button class="tab-btn active" data-view="panel">Panel</button>
-      <button class="tab-btn" data-view="inventario">Inventario</button>
-      <button class="tab-btn" data-view="movimientos">Movimientos</button>
-      <button class="tab-btn" data-view="alertas">
-        Alertas <span id="alertas-badge" class="badge hidden">0</span>
-      </button>
-    </nav>
+    <div class="header-right">
+      <nav class="tabs">
+        <button class="tab-btn active" data-view="panel">Panel</button>
+        <button class="tab-btn" data-view="inventario">Inventario</button>
+        <button class="tab-btn" data-view="movimientos">Movimientos</button>
+        <button class="tab-btn" data-view="alertas">
+          Alertas <span id="alertas-badge" class="badge hidden">0</span>
+        </button>
+      </nav>
+      <div class="user-menu">
+        <span id="user-label" class="user-label"></span>
+        <button class="btn" id="btn-cambiar-password">Cambiar contraseña</button>
+        <button class="btn" id="btn-logout">Cerrar sesión</button>
+      </div>
+    </div>
   </header>
 
   <main class="app-main">
@@ -200,6 +207,31 @@
         </label>
         <div class="form-actions span-2">
           <button type="button" class="btn" data-close-modal="modal-material">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: cambiar contraseña -->
+  <div id="modal-password" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Cambiar contraseña</h2>
+        <button class="modal-close" data-close-modal="modal-password">&times;</button>
+      </div>
+      <form id="form-password" class="form-grid" style="grid-template-columns: 1fr;">
+        <label>
+          Contraseña actual
+          <input id="pass-actual" type="password" required autocomplete="current-password" />
+        </label>
+        <label>
+          Contraseña nueva
+          <input id="pass-nueva" type="password" required minlength="8" autocomplete="new-password" />
+        </label>
+        <div class="hint" id="pass-error" style="color: var(--danger);"></div>
+        <div class="form-actions">
+          <button type="button" class="btn" data-close-modal="modal-password">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>

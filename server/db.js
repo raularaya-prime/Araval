@@ -1,6 +1,8 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('node:path');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
+const { hashPassword } = require('./password');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -41,6 +43,21 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_movimientos_material ON movimientos(material_id);
   CREATE INDEX IF NOT EXISTS idx_movimientos_fecha ON movimientos(fecha);
+
+  CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS sesiones (
+    token TEXT PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_sesiones_usuario ON sesiones(usuario_id);
 `);
 
 function seed() {
@@ -79,8 +96,39 @@ function seed() {
   }
 }
 
+function seedAdminUser() {
+  const count = db.prepare('SELECT COUNT(*) AS n FROM usuarios').get().n;
+  if (count > 0) return;
+
+  const username = process.env.ADMIN_USERNAME || 'admin';
+  let password = process.env.ADMIN_PASSWORD;
+  let generated = false;
+  if (!password) {
+    password = crypto.randomBytes(9).toString('base64url');
+    generated = true;
+  }
+
+  db.prepare('INSERT INTO usuarios (username, password_hash) VALUES (?, ?)').run(
+    username,
+    hashPassword(password)
+  );
+
+  if (generated) {
+    console.log('');
+    console.log('================================================================');
+    console.log('  Usuario administrador creado');
+    console.log(`  Usuario:     ${username}`);
+    console.log(`  Contraseña:  ${password}`);
+    console.log('  Guarda esta contraseña ahora: no se volverá a mostrar.');
+    console.log('  Puedes cambiarla luego desde la app una vez que inicies sesión.');
+    console.log('================================================================');
+    console.log('');
+  }
+}
+
 if (isNewDatabase) {
   seed();
 }
+seedAdminUser();
 
 module.exports = db;

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iniciar sesión — Araval Inventario</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+    }
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .login-brand h1 { margin: 0; font-size: 18px; }
+    .login-brand p { margin: 0; font-size: 12px; color: var(--text-muted); }
+    .login-error {
+      color: var(--danger);
+      font-size: 13px;
+      min-height: 18px;
+    }
+    #form-login { display: flex; flex-direction: column; gap: 14px; }
+    #form-login label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="brand-mark">A</span>
+      <div>
+        <h1>Araval Inventario</h1>
+        <p>Bodega de insumos — Maestranza metalmecánica</p>
+      </div>
+    </div>
+    <form id="form-login">
+      <label>
+        Usuario
+        <input id="login-username" type="text" autocomplete="username" required autofocus />
+      </label>
+      <label>
+        Contraseña
+        <input id="login-password" type="password" autocomplete="current-password" required />
+      </label>
+      <div class="login-error" id="login-error"></div>
+      <button type="submit" class="btn btn-primary" style="width: 100%;">Iniciar sesión</button>
+    </form>
+  </div>
+  <script src="/login.js"></script>
+</body>
+</html>

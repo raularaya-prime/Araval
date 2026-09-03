@@ -17,6 +17,9 @@ cuando algún insumo cae bajo su stock mínimo (crítico).
   del navegador.
 - **Panel de control**: resumen con total de materiales, cantidad en alerta, movimientos
   del día y valor total del inventario.
+- **Login**: toda la app (interfaz y API) requiere sesión iniciada. En el primer arranque
+  se crea un usuario administrador con contraseña generada (o la que definas por variable
+  de entorno); cada usuario puede cambiar su contraseña desde la app.
 
 ## Stack
 
@@ -35,9 +38,12 @@ npm start
 npm run dev
 ```
 
-Luego abre `http://localhost:3000`.
+Luego abre `http://localhost:3000`. Te va a pedir login — revisa la consola/log
+al arrancar: ahí se imprime el usuario y contraseña del administrador creado
+en el primer arranque (solo se muestra esa vez).
 
-Variable de entorno opcional: `PORT` (por defecto `3000`).
+Variables de entorno opcionales: `PORT` (por defecto `3000`), `ADMIN_USERNAME`,
+`ADMIN_PASSWORD`, `SESSION_DAYS` — ver [DEPLOY.md](DEPLOY.md#variables-de-entorno).
 
 Para desplegarla en un servidor real (systemd, Docker, Nginx + HTTPS, backups),
 ver [DEPLOY.md](DEPLOY.md).
@@ -46,21 +52,32 @@ ver [DEPLOY.md](DEPLOY.md).
 
 ```
 server/
-  index.js    servidor HTTP + enrutamiento de la API + archivos estáticos
+  index.js    servidor HTTP + enrutamiento de la API + archivos estáticos + puerta de login
   api.js      lógica de negocio (materiales, movimientos, alertas)
-  db.js       esquema SQLite y datos de ejemplo
+  auth.js     sesiones, cookies, rate limiting de login
+  password.js hash/verificación de contraseñas (scrypt)
+  db.js       esquema SQLite, datos de ejemplo y usuario administrador inicial
 public/
   index.html  interfaz (Panel, Inventario, Movimientos, Alertas)
   app.js      lógica de la interfaz (fetch a la API, render de tablas, modales)
   styles.css  estilos
+  login.html  página de inicio de sesión
+  login.js    lógica del formulario de login
 data/
   inventario.db  base de datos SQLite (generada al ejecutar, no versionada)
 ```
 
 ## API
 
+Todas las rutas (excepto `/api/login`) requieren sesión iniciada; sin ella
+responden `401`.
+
 | Método | Ruta | Descripción |
 | --- | --- | --- |
+| POST | `/api/login` | Inicia sesión (`username`, `password`) |
+| POST | `/api/logout` | Cierra la sesión actual |
+| GET | `/api/me` | Usuario de la sesión activa |
+| POST | `/api/cambiar-password` | Cambia la contraseña (`password_actual`, `password_nueva`) |
 | GET | `/api/resumen` | Estadísticas para el panel |
 | GET | `/api/materiales` | Lista materiales (filtros: `categoria`, `buscar`, `criticos`) |
 | GET | `/api/materiales/:id` | Detalle de un material |

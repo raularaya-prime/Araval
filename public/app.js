@@ -47,6 +47,10 @@
       headers: { 'Content-Type': 'application/json' },
       ...options,
     });
+    if (res.status === 401) {
+      window.location.href = '/login';
+      throw new Error('No autenticado');
+    }
     let data = null;
     try { data = await res.json(); } catch { /* no body */ }
     if (!res.ok) {
@@ -389,6 +393,37 @@
     $('#btn-filtrar-hist').addEventListener('click', loadHistorialMovimientos);
     $('#btn-notificaciones').addEventListener('click', requestNotificationPermission);
 
+    $('#btn-logout').addEventListener('click', async () => {
+      try { await api('/logout', { method: 'POST' }); } catch { /* ignore */ }
+      window.location.href = '/login';
+    });
+
+    $('#btn-cambiar-password').addEventListener('click', () => {
+      $('#form-password').reset();
+      $('#pass-error').textContent = '';
+      $('#modal-password').classList.remove('hidden');
+    });
+    $('#modal-password').addEventListener('click', (e) => {
+      if (e.target.id === 'modal-password') closeModal('modal-password');
+    });
+    $('#form-password').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('#pass-error').textContent = '';
+      try {
+        await api('/cambiar-password', {
+          method: 'POST',
+          body: JSON.stringify({
+            password_actual: $('#pass-actual').value,
+            password_nueva: $('#pass-nueva').value,
+          }),
+        });
+        toast('Contraseña actualizada', 'success');
+        closeModal('modal-password');
+      } catch (err) {
+        $('#pass-error').textContent = err.message;
+      }
+    });
+
     $('#inventario-table').addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-action]');
       if (!btn) return;
@@ -412,6 +447,12 @@
 
   async function init() {
     wireEvents();
+    try {
+      const me = await api('/me');
+      $('#user-label').textContent = `👤 ${me.username}`;
+    } catch {
+      return; // api() ya redirigió a /login en un 401
+    }
     try {
       await loadPanel();
     } catch (err) {
